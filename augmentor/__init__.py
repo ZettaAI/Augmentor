@@ -9,5 +9,6 @@ from .misalign import *
 from .missing import *
 from .noise import *
 from .subsample import Subsample
+from .tilt_series import *
 from .track import *
 from .warp import Warp

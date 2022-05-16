@@ -2,7 +2,7 @@ import numpy as np
 
 import skimage.measure as measure
 
-from .augment import Augment, Compose
+from .augment import Augment
 
 
 class Subsample(Augment):
@@ -31,7 +31,9 @@ class Subsample(Augment):
         return Augment.sort(Augment.to_tensor(sample))
 
     def __repr__(self):
-        format_string = self.__class__.__name__ + '()'
+        format_string = self.__class__.__name__ + '('
+        format_string += f'factor={self.factor}'
+        format_string += ')'
         return format_string
 
     def _validate(self, spec, segs):
