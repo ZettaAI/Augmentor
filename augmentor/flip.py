@@ -1,10 +1,9 @@
-from __future__ import print_function
 import numpy as np
 
 from .augment import Augment, Compose
 
 
-__all__ = ['Flip', 'Transpose', 'FlipRotate']
+__all__ = ['Flip', 'Transpose', 'FlipRotate', 'FlipRotateIsotropic']
 
 
 class Flip(Augment):
