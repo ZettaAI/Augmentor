@@ -4,7 +4,7 @@ from scipy import ndimage
 from .augment import Augment
 
 
-__all__ = ['NormalView', 'TiltedView', 'TiltSeries']
+__all__ = ['NormalView', 'TiltedView', 'SimpleTiltSeries', 'TiltSeries']
 
 
 class NormalView(object):
@@ -62,15 +62,15 @@ class TiltedView(object):
             prj[idx] = np.roll(img[idx], dir*(i - pivot), axis=axis_t)
         prj = NormalView.project(prj, n, axis=axis_p)
         
-        # Invalidate the first half
-        idx_l = [slice(None)] * img.ndim
-        idx_l[axis_t] = slice(0, pivot)
-        prj[idx_l] = 0
+        # # Invalidate the first half
+        # idx_l = [slice(None)] * img.ndim
+        # idx_l[axis_t] = slice(0, pivot)
+        # prj[tuple(idx_l)] = 0
         
-        # Invalidate the second half
-        idx_r = [slice(None)] * img.ndim
-        idx_r[axis_t] = slice(-pivot, None)        
-        prj[idx_r] = 0
+        # # Invalidate the second half
+        # idx_r = [slice(None)] * img.ndim
+        # idx_r[axis_t] = slice(-pivot, None)        
+        # prj[tuple(idx_r)] = 0
 
         return prj
 
