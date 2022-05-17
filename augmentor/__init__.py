@@ -8,7 +8,7 @@ from .lost import *
 from .misalign import *
 from .missing import *
 from .noise import *
-from .subsample import Subsample
+from .subsample import SubsampleLabels
 from .tilt_series import *
 from .track import *
 from .warp import Warp

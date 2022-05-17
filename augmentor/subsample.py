@@ -1,11 +1,10 @@
 import numpy as np
-
 import skimage.measure as measure
 
 from .augment import Augment
 
 
-class Subsample(Augment):
+class SubsampleLabels(Augment):
     """
     Subsample.
     """
@@ -17,17 +16,17 @@ class Subsample(Augment):
         self.slice = tuple([slice(0, None)] + slc)
 
     def prepare(self, spec, segs=[], **kwargs):
-        self.segs = self._validate(spec, segs)
+        self.segs = self.__validate(spec, segs)
         return dict(spec)
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
         if any(self.factor > 1):
             for k in self.segs:
-                sample[k] = sample[k][self.slice].astype(np.uint32)
+                sample[k] = sample[k][self.slice]
                 m = k + '_mask'
                 if m in sample:
-                    sample[m] = sample[m][self.slice].astype(np.uint8)
+                    sample[m] = sample[m][self.slice]
         return Augment.sort(Augment.to_tensor(sample))
 
     def __repr__(self):
@@ -36,7 +35,7 @@ class Subsample(Augment):
         format_string += ')'
         return format_string
 
-    def _validate(self, spec, segs):
+    def __validate(self, spec, segs):
         assert len(segs) > 0
         assert all(k in spec for k in segs)
         return segs
