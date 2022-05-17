@@ -51,7 +51,7 @@ class TiltedView(object):
     @staticmethod
     def project(img, n, dir=1, axis_t=-1, axis_p=-3):
         assert img.shape[axis_p] % n == 0
-        prj = np.zeros_like(img)
+        prj = np.copy(img)
         for i in range(1, n):
             idx = [slice(None)] * img.ndim
             idx[axis_p] = slice(i, img.shape[axis_p], n)
