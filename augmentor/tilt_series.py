@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import ndimage
 
-
 from .augment import Augment
 
 
@@ -66,9 +65,18 @@ class TiltSeries(Augment):
     """
     def __init__(self, num_sections):
         self.num_sections = num_sections
+        self.imgs = []
 
     def prepare(self, spec, **kwargs):
-        pass
+        
+
+        # Update spec
+        spec = dict(spec)
+        for k, v in spec.items():
+            pivot = -3
+            new_z = v[pivot] + self.nsec
+            spec[k] = v[:pivot] + (new_z,) + v[pivot+1:]
+        return spec
 
     def __call__(self, sample, **kwargs):
         pass
@@ -76,3 +84,8 @@ class TiltSeries(Augment):
     def __repr__(self):
         format_string = self.__class__.__name__ + '()'
         return format_string
+
+    def _validate(self, spec, imgs):
+        assert len(imgs) > 0
+        assert all(k in spec for k in imgs)
+        return imgs
