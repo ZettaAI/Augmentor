@@ -1,6 +1,7 @@
 from .augment import Augment, Compose, Blend
 from .blur import *
 from .box import *
+from .crop import *
 from .flip import *
 from .grayscale import *
 from .label import Label
