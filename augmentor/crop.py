@@ -34,7 +34,7 @@ class CropLabels(Augment):
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
-        if self.crop is not None:
+        if self.cropsz is not None:
             for k in self.segs:
                 sample[k] = crop_center_no_strict(sample[k], self.cropsz)
                 m = k + '_mask'
@@ -44,7 +44,7 @@ class CropLabels(Augment):
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
-        format_string += f'crop={self.crop}'
+        format_string += f'cropsz={self.cropsz}'
         format_string += ')'
         return format_string
 
