@@ -25,8 +25,8 @@ class CropLabels(Augment):
     Crop labels.
     """
     def __init__(self, cropsz):
-        self.crop = tuple(cropsz)
-        self.segs = []        
+        self.cropsz = tuple(cropsz)
+        self.segs = []
 
     def prepare(self, spec, segs=[], **kwargs):
         self.segs = self.__validate(spec, segs)
