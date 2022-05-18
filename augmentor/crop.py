@@ -24,8 +24,8 @@ class CropLabels(Augment):
     """
     Crop labels.
     """
-    def __init__(self, crop):
-        self.crop = np.array(crop)
+    def __init__(self, cropsz):
+        self.crop = tuple(cropsz)
         self.segs = []        
 
     def prepare(self, spec, segs=[], **kwargs):
@@ -36,14 +36,10 @@ class CropLabels(Augment):
         sample = Augment.to_tensor(sample)
         if self.crop is not None:
             for k in self.segs:
-                v = sample[k]
-                cropsz = (np.array(v.shape[-3:]) * self.crop).astype(int)
-                sample[k] = crop_center_no_strict(v, cropsz)                
+                sample[k] = crop_center_no_strict(sample[k], self.cropsz)
                 m = k + '_mask'
                 if m in sample:
-                    v = sample[m]
-                    cropsz = (np.array(v.shape[-3:]) * self.crop).astype(int)
-                    sample[m] = crop_center_no_strict(v, cropsz)
+                    sample[m] = crop_center_no_strict(sample[m], self.cropsz)
         return Augment.sort(Augment.to_tensor(sample))
 
     def __repr__(self):
