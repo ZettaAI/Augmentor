@@ -17,7 +17,7 @@ def crop_center_no_strict(v, size):
             idx.append(slice(s, s + y))
         else:
             idx.append(slice(None))
-    return v[idx]
+    return v[tuple(idx)]
 
 
 class CropLabels(Augment):
