@@ -89,9 +89,12 @@ class SimpleTiltSeries(object):
     """
     Tilt-series projections.
     """
-    def __init__(self, num_sections):
+    def __init__(self, num_sections, projections=None):
         self.num_sections = num_sections
-        self.prjs = simple_projections(num_sections)
+        if projections is None:
+            self.prjs = simple_projections(num_sections)
+        else:
+            self.prjs = projections
 
     def __call__(self, img):
         return self.project(img)
@@ -110,10 +113,10 @@ class TiltSeries(Augment):
     """
     Tilt-series projections.
     """
-    def __init__(self, num_sections):
+    def __init__(self, num_sections, projections=None):
         self.num_sections = num_sections
         self.pad = num_sections // 2
-        self.sts = SimpleTiltSeries(num_sections)
+        self.sts = SimpleTiltSeries(num_sections, projections)
         self.imgs = []        
 
     def prepare(self, spec, imgs=[], **kwargs):
@@ -138,6 +141,7 @@ class TiltSeries(Augment):
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
         format_string += f'num_sections={self.num_sections}'
+        format_string += f'sts={self.sts}'
         format_string += ')'
         return format_string
 
