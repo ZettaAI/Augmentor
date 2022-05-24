@@ -17,7 +17,12 @@ class SubsampleLabels(Augment):
 
     def prepare(self, spec, segs=[], **kwargs):
         self.segs = self.__validate(spec, segs)
-        return dict(spec)
+        # Update spec
+        spec = dict(spec)
+        for k in self.segs:
+            v = spec[k]
+            spec[k] = v[:-3] + tuple(self.factor * v[-3:])
+        return spec
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)

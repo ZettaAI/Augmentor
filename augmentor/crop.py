@@ -24,27 +24,34 @@ class CropLabels(Augment):
     """
     Crop labels.
     """
-    def __init__(self, cropsz):
-        self.cropsz = tuple(cropsz)
+    def __init__(self, crop):
+        self.crop = tuple(crop)
         self.segs = []
 
     def prepare(self, spec, segs=[], **kwargs):
         self.segs = self.__validate(spec, segs)
-        return dict(spec)
+        # Update spec
+        spec = dict(spec)
+        for k in self.segs:
+            v = spec[k]
+            spec[k] = v[:-3] + tuple((v[-3:]/self.crop).astype(int))
+        return spec
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
-        if self.cropsz is not None:
+        if self.crop is not None:
             for k in self.segs:
-                sample[k] = crop_center_no_strict(sample[k], self.cropsz)
+                cropsz = (sample[k].shape[-3:] * self.crop).astype(int)
+                sample[k] = crop_center_no_strict(sample[k], cropsz)
                 m = k + '_mask'
                 if m in sample:
-                    sample[m] = crop_center_no_strict(sample[m], self.cropsz)
+                    cropsz = (sample[m].shape[-3:] * self.crop).astype(int)
+                    sample[m] = crop_center_no_strict(sample[m], cropsz)
         return Augment.sort(Augment.to_tensor(sample))
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
-        format_string += f'cropsz={self.cropsz}'
+        format_string += f'crop={self.crop}'
         format_string += ')'
         return format_string
 

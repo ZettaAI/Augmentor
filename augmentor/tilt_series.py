@@ -121,12 +121,13 @@ class TiltSeries(Augment):
 
     def prepare(self, spec, imgs=[], **kwargs):
         self.imgs = self.__validate(spec, imgs)
+        num = self.num_sections
         pad = 2*self.pad
         # Update spec
         spec = dict(spec)
         for k in self.imgs:
             v = spec[k]
-            spec[k] = v[:-2] + (v[-2]+pad, v[-1]+pad)
+            spec[k] = v[:-3] + (v[-3]*num, v[-2]+pad, v[-1]+pad)
         return spec
 
     def __call__(self, sample, **kwargs):
