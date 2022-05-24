@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 import time
 
@@ -25,16 +25,19 @@ class Track(Augment):
         self.flip_rotate = FlipRotate()
 
     def prepare(self, spec, imgs=[], **kwargs):
+        Augment.validate_spec(spec)
+        spec = copy.deepcopy(spec)
+
         # Biased coin toss
         if np.random.rand() < self.skip:
             self.do_aug = False
-            return dict(spec)
+            return spec
 
         if self.flip_rotate is not None:
             spec = self.flip_rotate.prepare(spec, **kwargs)
         self.imgs = self._validate(spec, imgs)
         self.do_aug = True
-        return dict(spec)
+        return spec
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)

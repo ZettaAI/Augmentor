@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from scipy import ndimage
 
@@ -60,19 +61,7 @@ class TiltedView(object):
             idx[axis_p] = slice(i, img.shape[axis_p], n)
             idx = tuple(idx)
             prj[idx] = np.roll(img[idx], dir*(i - pivot), axis=axis_t)
-        prj = NormalView.project(prj, n, axis=axis_p)
-        
-        # # Invalidate the first half
-        # idx_l = [slice(None)] * img.ndim
-        # idx_l[axis_t] = slice(0, pivot)
-        # prj[tuple(idx_l)] = 0
-        
-        # # Invalidate the second half
-        # idx_r = [slice(None)] * img.ndim
-        # idx_r[axis_t] = slice(-pivot, None)        
-        # prj[tuple(idx_r)] = 0
-
-        return prj
+        return NormalView.project(prj, n, axis=axis_p)
 
 
 def simple_projections(num_sections): 
@@ -108,6 +97,9 @@ class SimpleTiltSeries(object):
             tilt_series = np.concatenate(prjs, axis=-4)
         return tilt_series
 
+    def len(self):
+        return len(self.prjs)
+
         
 class TiltSeries(Augment):
     """
@@ -120,14 +112,22 @@ class TiltSeries(Augment):
         self.imgs = []        
 
     def prepare(self, spec, imgs=[], **kwargs):
+        Augment.validate_spec(spec)
+        spec = copy.deepcopy(spec)
+        
         self.imgs = self.__validate(spec, imgs)
         num = self.num_sections
         pad = 2*self.pad
-        # Update spec
-        spec = dict(spec)
+        
+        # Update spec        
         for k in self.imgs:
-            v = spec[k]
-            spec[k] = v[:-3] + (v[-3]*num, v[-2]+pad, v[-1]+pad)
+            # Shape
+            s = spec[k]['shape']
+            assert s[-4] == self.sts.len()
+            spec[k]['shape'] = (1, s[-3]*num, s[-2]+pad, s[-1]+pad)
+            # Resolution
+            r = spec[k]['resolution']
+            spec[k]['resolution'] = (r[-3]//num,) + r[-2:]
         return spec
 
     def __call__(self, sample, **kwargs):

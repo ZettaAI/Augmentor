@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 
 from .augment import Augment
@@ -22,20 +22,22 @@ class Warp(Augment):
         self.imgs = []
 
     def prepare(self, spec, imgs=[], **kwargs):
+        Augment.validate_spec(spec)
+        
         # Biased coin toss
         self.do_warp = np.random.rand() > self.skip
         if not self.do_warp:
-            return dict(spec)
+            return copy.deepcopy(spec)
 
         self.imgs = self._validate(spec, imgs)
 
         # Save original spec.
-        self.spec = dict(spec)
+        self.spec = copy.deepcopy(spec)
 
         # Compute the largest image size.
         box = Box((0,0,0), (0,0,0))
         for k, v in spec.items():
-            box = box.merge(Box((0,0,0), v[-3:]))
+            box = box.merge(Box((0,0,0), v['shape'][-3:]))
         maxsz = tuple(box.size())
 
         # Random warp parameters
@@ -54,13 +56,14 @@ class Warp(Augment):
         # print(warp_params)
 
         # Increase tensor size.
-        ret = dict()
+        spec = copy.deepcopy(spec)
         for k, v in spec.items():
+            s = v['shape']
             if k in imgs:
-                ret[k] = v[:-3] + self.size
+                spec[k] = s[:-3] + self.size
             else:
-                ret[k] = v[:-3] + tuple(x+y for x,y in zip(v[-3:], size_diff))
-        return ret
+                spec[k] = s[:-3] + tuple(x+y for x,y in zip(s[-3:], size_diff))
+        return spec
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
@@ -68,12 +71,13 @@ class Warp(Augment):
             for k, v in sample.items():
                 v = np.transpose(v, (1,0,2,3))
                 if k in self.imgs:
-                    v = warping.warp3d(v, self.spec[k][-3:],
+                    v = warping.warp3d(v, self.spec[k]['shape'][-3:],
                             self.rot, self.shear,
                             self.scale, self.stretch, self.twist
                         )
                 else:
-                    v = warping.warp3dLab(v, self.spec[k][-3:], self.size,
+                    v = warping.warp3dLab(v, self.spec[k]['shape'][-3:], 
+                            self.size,
                             self.rot, self.shear,
                             self.scale, self.stretch, self.twist
                         )

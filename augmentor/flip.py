@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 
 from .augment import Augment, Compose
@@ -19,9 +20,10 @@ class Flip(Augment):
         self.do_aug = False
 
     def prepare(self, spec, **kwargs):
+        Augment.validate_spec(spec)
         # Biased coin toss
         self.do_aug = np.random.rand() < self.prob
-        return dict(spec)
+        return copy.deepcopy(spec)
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
@@ -46,22 +48,28 @@ class Transpose(Augment):
         axes (list of int, optional):
         prob (float, optional):
     """
-    def __init__(self, axes=None, prob=0.5):
-        assert (axes is None) or (len(axes)==4)
+    def __init__(self, axes, prob=0.5):
+        assert len(axes) == 4
         self.axes = axes
         self.prob = np.clip(prob, 0, 1)
         self.do_aug = False
 
     def prepare(self, spec, **kwargs):
-        spec = dict(spec)
+        Augment.validate_spec(spec)
+        spec = copy.deepcopy(spec)
+        
         # Biased coin toss
         self.do_aug = np.random.rand() < self.prob
-        if (not self.do_aug) or (self.axes is None):
+        if not self.do_aug:
             return spec
+
+        # Update spec
         for k, v in spec.items():
-            assert len(v)==3 or len(v)==4
-            offset = 1 if len(v)==3 else 0
-            spec[k] = tuple(v[:-3]) + tuple(v[x - offset] for x in self.axes[-3:])
+            # Shape
+            spec[k]['shape'] = tuple(v['shape'][x] for x in self.axes)
+            # Resolution
+            axes = tuple(x - 1 for x in self.axes[-3:])
+            spec[k]['resolution'] = tuple(v['resolution'][x] for x in axes)
         return spec
 
     def __call__(self, sample, **kwargs):

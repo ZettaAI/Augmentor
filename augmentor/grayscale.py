@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 
 from .augment import Augment, Blend
@@ -23,10 +23,11 @@ class Grayscale3D(Augment):
         self.imgs = []
 
     def prepare(self, spec, imgs=[], **kwargs):
+        Augment.validate_spec(spec)
         # Biased coin toss.
         self.do_aug = np.random.rand() > self.skip
         self.imgs = self._validate(spec, imgs)
-        return dict(spec)
+        return copy.deepcopy(spec)
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)

@@ -40,6 +40,19 @@ class Augment(object):
             spec[k] = v.shape[-3:]
         return spec
 
+    @staticmethod
+    def validate_spec(spec):
+        assert isinstance(spec, dict)
+        for k, v in spec.items():
+            assert isinstance(k, str)
+            assert isinstance(v, dict)
+            assert 'shape' in v
+            assert isinstance(v['shape'], tuple)
+            assert len(v['shape']) == 4
+            assert 'resolution' in v:
+            assert isinstance(v['resolution'], tuple)
+            assert len(v['resolution']) == 3
+
 
 class Compose(Augment):
     """Composes several augments together.

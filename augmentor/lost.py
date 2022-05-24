@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 
 from .augment import Augment
@@ -23,42 +23,64 @@ class LostSection(Augment):
         self.zloc = {}
 
     def prepare(self, spec, **kwargs):
+        Augment.validate_spec(spec)
+        spec = copy.deepcopy(spec)
+
         # Biased coin toss
         if np.random.rand() < self.skip:
             self.zloc = {}
             return dict(spec)
 
-        # Random sections
-        zmin = self._validate(spec) - 1
-        zloc = np.random.choice(zmin, 1, replace=False) + 1
-        zloc = zloc[0]
+        # Collect z-info.
+        spec = copy.deepcopy(spec)
+        zdims = {k: v['shape'][-3] for k, v in spec.items()}
+        zres = {k: v['resolution'][-3] for k, v in spec.items()}
+        rmax = max(zres.values())
+        zscale = {k: rmax // v for k, v in zres.items()}
+        zdims2 = {k: zdims[k] * v for v in zres.items()}
+
+        # Pick a random section.
+        zmin2 = min(zdims2.values())
+        assert zmin2 % rmax == 0
+        zmin = zmin2 // rmax - 1        
+        zloc = (np.random.choice(zmin, 1, replace=False) + 1)[0]
 
         # Offset z-location.
-        self.zloc = dict()
-        for k, v in spec.items():
-            zdim = v[-3]
+        self.zslcs = {}
+        for k, zdim in zdims.items():
             offset = (zdim - zmin) // 2
-            self.zloc[k] = offset + zloc
+            zstart = (offset + zloc) * zscale[k]
+            self.zslcs[k] = slice(zstart, zstart + zscale[k])
 
         # Update spec
-        spec = dict(spec)
         for k, v in spec.items():
-            pivot = -3
-            new_z = v[pivot] + self.nsec
-            spec[k] = v[:pivot] + (new_z,) + v[pivot+1:]
+            zslc = self.zslcs[k]
+            step = zslc.stop - zslc.start
+            new_z = v['shape'][-3] + (self.nsec * step)
+            spec[k]['shape'] = v[:-3] + (new_z,) + v[-2:]
+        
         return spec
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
-        if len(self.zloc) > 0:
-            nsec = self.nsec
+        if len(self.zslcs) > 0:
+            n = self.nsec
             for k, v in sample.items():
-                zloc = self.zloc[k]
+                zslc = self.zslcs[k]
+                zloc = zslc.start
+                step = zslc.stop - zslc.start
+
+                # New tensor
                 c, z, y, x = v.shape[-4:]
-                w = np.zeros((c, z - nsec, y, x), dtype=v.dtype)
+                w = np.zeros((c, z - n*step, y, x), dtype=v.dtype)
+
+                # Non-missing part
                 w[:,:zloc,:,:] = v[:,:zloc,:,:]
-                w[:,zloc:,:,:] = v[:,zloc+nsec:,:,:]
+                w[:,zloc:,:,:] = v[:,zloc+n*step:,:,:]
+                
+                # Update sample
                 sample[k] = w
+
         return Augment.sort(sample)
 
     def __repr__(self):
@@ -67,12 +89,6 @@ class LostSection(Augment):
         format_string += 'skip={:.2f}, '.format(self.skip)
         format_string += ')'
         return format_string
-
-    def _validate(self, spec):
-        zdims = [v[-3] for v in spec.values()]
-        zmin = min(zdims)
-        assert zmin > 1
-        return zmin
 
 
 class LostPlusMissing(LostSection):
@@ -95,26 +111,29 @@ class LostPlusMissing(LostSection):
     def augment(self, sample):
         sample = Augment.to_tensor(sample)
 
-        if len(self.zloc) > 0:
+        if len(self.zslcs) > 0:
             val = np.random.rand() if self.random else self.value
             assert self.nsec == 2
-            nsec = self.nsec
+            n = self.nsec
             for k, v in sample.items():
-                zloc = self.zloc[k]
+                zslc = self.zslcs[k]
+                zloc = zslc.start
+                step = zslc.stop - zslc.start
 
                 # New tensor
                 c, z, y, x = v.shape[-4:]
-                w = np.zeros((c, z - nsec, y, x), dtype=v.dtype)
+                w = np.zeros((c, z - n*step, y, x), dtype=v.dtype)
 
                 # Non-missing part
                 w[:,:zloc,:,:] = v[:,:zloc,:,:]
-                w[:,zloc+1:,:,:] = v[:,zloc+nsec+1:,:,:]
+                w[:,zloc+step:,:,:] = v[:,zloc+(n+1)*step:,:,:]
 
                 # Missing part
                 if k in self.imgs:
-                    w[:,zloc,...] = val
+                    w[:,zslc,...] = val
                 else:
-                    w[:,zloc,...] = v[:,zloc+1,:,:]
+                    src = slice(zslc.stop, zslc.stop + step)
+                    w[:,zslc,...] = v[:,src,:,:]
 
                 # Update sample
                 sample[k] = w

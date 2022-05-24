@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 
 from .augment import Augment
@@ -37,11 +37,12 @@ class BoxOcclusion(Augment):
         self.perturb = None
 
     def prepare(self, spec, imgs=[], **kwargs):
+        Augment.validate_spec(spec)
         self.do_aug = np.random.rand() > self.skip
         self.perturb = self.get_perturb() if self.do_aug else None
-        self.spec = dict(spec)
+        self.spec = copy.deepcopy(spec)
         self.imgs = self._validate(spec, imgs)
-        return dict(spec)
+        return copy.deepcopy(spec)
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
@@ -68,7 +69,7 @@ class BoxOcclusion(Augment):
         bbox_union = None
         self.bbox = dict()
         for k in self.imgs:
-            dim = self.spec[k][-3:]
+            dim = self.spec[k]['shape'][-3:]
             box = centered_box((0,0,0), dim)
             bbox_union = box if bbox_union is None else bbox_union.merge(box)
             self.bbox[k] = box

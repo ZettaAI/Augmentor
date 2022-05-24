@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import skimage.measure as measure
 
@@ -16,12 +17,22 @@ class SubsampleLabels(Augment):
         self.slice = tuple([slice(0, None)] + slc)
 
     def prepare(self, spec, segs=[], **kwargs):
+        Augment.validate_spec(spec)
+        spec = copy.deepcopy(spec)
         self.segs = self.__validate(spec, segs)
+        
         # Update spec
-        spec = dict(spec)
-        for k in self.segs:
-            v = spec[k]
-            spec[k] = v[:-3] + tuple(self.factor * v[-3:])
+        segs = list(self.segs) + [x + '_mask' for x in self.segs]
+        for k in segs:
+            if k not in segs:
+                assert '_mask' in k
+                continue
+            # Shape
+            s = spec[k]['shape']
+            spec[k]['shape'] = s[:-3] + tuple(s[-3:] * self.factor)
+            # Resolution
+            r = spec[k]['resolution']
+            spec[k]['resolution'] = tuple(r // self.factor)
         return spec
 
     def __call__(self, sample, **kwargs):

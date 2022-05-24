@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 
 from .augment import Augment, Compose
@@ -30,10 +30,13 @@ class Section(Augment):
         self.imgs = []
 
     def prepare(self, spec, imgs=[], **kwargs):
+        Augment.validate_spec(spec)
+        spec = copy.deepcopy(spec)
+
         # Biased coin toss
         if np.random.rand() < self.skip:
             self.zlocs = []
-            return dict(spec)
+            return spec
 
         # Perturbation
         self.perturb = self.get_perturb()
@@ -48,7 +51,7 @@ class Section(Augment):
             zlocs = np.where(zlocs)[0]
         self.zlocs = zlocs
         self.imgs = imgs
-        return dict(spec)
+        return spec
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
@@ -80,7 +83,7 @@ class Section(Augment):
     def _validate(self, spec, imgs):
         assert len(imgs) > 0
         assert all(k in spec for k in imgs)
-        zdims = [spec[k][-3] for k in imgs]
+        zdims = [spec[k]['shape'][-3] for k in imgs]
         zmin, zmax = min(zdims), max(zdims)
         assert zmax==zmin  # Do not allow inputs with different z-dim.
         assert zmax>self.maxsec

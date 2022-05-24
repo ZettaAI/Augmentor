@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 
 import skimage.measure as measure
@@ -16,7 +16,7 @@ class Label(Augment):
 
     def prepare(self, spec, segs=[], **kwargs):
         self.segs = self._validate(spec, segs)
-        return dict(spec)
+        return copy.deepcopy(spec)
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)

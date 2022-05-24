@@ -1,4 +1,4 @@
-from __future__ import print_function
+import copy
 import numpy as np
 
 from .augment import Augment, Blend
@@ -7,8 +7,8 @@ from .track import Track
 from . import utils
 
 
-__all__ = ['Misalign','MisalignPlusMissing',
-           'MisalignTrackMissing','SlipMisalign']
+__all__ = ['Misalign', 'MisalignPlusMissing', 'MisalignTrackMissing', 
+           'SlipMisalign']
 
 
 class Misalign(Augment):
@@ -31,33 +31,42 @@ class Misalign(Augment):
         self.flip_rotate = FlipRotate()
 
     def prepare(self, spec, **kwargs):
+        Augment.validate_spec(spec)
         spec = self.flip_rotate.prepare(spec, **kwargs)
 
         # Original spec
-        self.spec = dict(spec)
+        self.spec = copy.deepcopy(spec)
 
         # Random displacement in x/y dimension.
         self.tx = np.random.randint(*self.disp)
         self.ty = np.random.randint(*self.disp)
 
+        # Collect z-info.
+        spec = copy.deepcopy(spec)
+        zdims = {k: v['shape'][-3] for k, v in spec.items()}
+        zres = {k: v['resolution'][-3] for k, v in spec.items()}
+        rmax = max(zres.values())
+        zscale = {k: rmax // v for k, v in zres.items()}
+        zdims2 = {k: zdims[k] * v for v in zres.items()}
+        
         # Increase tensor dimension by the amount of displacement.
-        zdims = dict()
-        spec = dict(spec)
-        for k, shape in spec.items():
-            z, y, x = shape[-3:]
-            zdims[k] = z
-            spec[k] = shape[:-2] + (y + self.ty, x + self.tx)
+        for k, v in spec.items():
+            y, x = v['shape'][-2:]            
+            spec[k]['shape'] = v['shape'][:-2] + (y + self.ty, x + self.tx)
 
         # Pick a section to misalign.
-        zmin = min(zdims.values())
+        zmin2 = min(zdims2.values())
+        assert zmin2 % rmax == 0
+        zmin = zmin2 // rmax
         assert zmin >= 2*self.margin + self.zmin
         zloc = np.random.randint(self.margin + 1, zmin - self.margin)
 
         # Offset z-location.
-        self.zlocs = dict()
+        self.zslcs = {}
         for k, zdim in zdims.items():
             offset = (zdim - zmin) // 2
-            self.zlocs[k] = offset + zloc
+            zstart = (offset + zloc) * zscale[k]
+            self.zslcs[k] = slice(zstart, zstart + zscale[k])
 
         return spec
 
@@ -76,12 +85,12 @@ class Misalign(Augment):
 
         for k, v in sample.items():
             # New tensor
-            w = np.zeros(self.spec[k], dtype=v.dtype)
+            w = np.zeros(self.spec[k]['shape'], dtype=v.dtype)
             w = utils.to_tensor(w)
 
             # Misalign.
             z, y, x = w.shape[-3:]
-            zloc = self.zlocs[k]
+            zloc = self.zslcs[k].start
             w[:,:zloc,...] = v[:,:zloc,:y,:x]
             w[:,zloc:,...] = v[:,zloc:,-y:,-x:]
             sample[k] = w
@@ -122,26 +131,33 @@ class MisalignPlusMissing(Misalign):
     def misalign(self, sample):
         for k, v in sample.items():
             # New tensor
-            w = np.zeros(self.spec[k], dtype=v.dtype)
+            w = np.zeros(self.spec[k]['shape'], dtype=v.dtype)
             w = utils.to_tensor(w)
 
             # Misalign.
-            z, y, x = w.shape[-3:]
-            zloc = self.zlocs[k]
+            y, x = w.shape[-2:]
+            zslc = self.zslcs[k]
+            zloc = zslc.start
             w[:,:zloc,...] = v[:,:zloc,:y,:x]
             w[:,zloc:,...] = v[:,zloc:,-y:,-x:]
+            step = zslc.stop - zslc.start
 
             if k not in self.imgs:
                 # Target interpolation
                 if self.both:
-                    tx = round(self.tx / 3.0)
-                    ty = round(self.ty / 3.0)
-                    w[:,zloc-1,...] = v[:,zloc-1,ty:ty+y,tx:tx+x]
-                    w[:,zloc,...] = v[:,zloc,-ty-y:-ty,-tx-x:-tx]
+                    n = 2*step + 1
+                    for i in range(1, n):
+                        tx = round(self.tx * i / float(n))
+                        ty = round(self.ty * i / float(n))
+                        zloc = zslc.start - step + i - 1
+                        w[:,zloc,...] = v[:,zloc,ty:ty+y,tx:tx+x]
                 else:
-                    tx = round(self.tx / 2.0)
-                    ty = round(self.ty / 2.0)
-                    w[:,zloc,...] = v[:,zloc,ty:ty+y,tx:tx+x]
+                    n = step + 1
+                    for i in range(1, n):
+                        tx = round(self.tx * i / float(n))
+                        ty = round(self.ty * i / float(n))
+                        zloc = zslc.start + i - 1
+                        w[:,zloc,...] = v[:,zloc,ty:ty+y,tx:tx+x]
 
             # Update sample.
             sample[k] = w
@@ -156,7 +172,9 @@ class MisalignPlusMissing(Misalign):
             img = sample[k]
             img[:,zloc,...] = val
             if self.both:
-                img[:,zloc-1,...] = val
+                step = zloc.stop - zloc.start
+                idx = slice(zloc.start - step, zloc.start)
+                img[:,idx,...] = val
             sample[k] = img
 
         return sample
@@ -220,15 +238,15 @@ class SlipMisalign(Misalign):
 
         for k, v in sample.items():
             # New tensor
-            w = np.zeros(self.spec[k], dtype=v.dtype)
+            w = np.zeros(self.spec[k]['shape'], dtype=v.dtype)
             w = utils.to_tensor(w)
 
             # Misalign.
             z, y, x = w.shape[-3:]
-            zloc = self.zlocs[k]
+            zslc = self.zslcs[k]
             w[...] = v[...,:y,:x]
             if (k in self.imgs) or (not self.interp):
-                w[:,zloc,...] = v[:,zloc,-y:,-x:]
+                w[:,zslc,...] = v[:,zslc,-y:,-x:]
             sample[k] = w
 
         return Augment.sort(sample)

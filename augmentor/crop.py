@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 import skimage.measure as measure
 
@@ -29,12 +30,15 @@ class CropLabels(Augment):
         self.segs = []
 
     def prepare(self, spec, segs=[], **kwargs):
+        Augment.validate_spec(spec)
+        spec = copy.deepcopy(spec)
+
         self.segs = self.__validate(spec, segs)
+        
         # Update spec
-        spec = dict(spec)
         for k in self.segs:
-            v = spec[k]
-            spec[k] = v[:-3] + tuple((v[-3:]/self.crop).astype(int))
+            s = spec[k]['shape']
+            spec[k]['shape'] = s[:-3] + tuple((s[-3:]/self.crop).astype(int))
         return spec
 
     def __call__(self, sample, **kwargs):
