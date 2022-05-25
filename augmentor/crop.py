@@ -35,6 +35,9 @@ class CropLabels(Augment):
         for k in self.segs:
             v = spec[k]
             spec[k] = v[:-3] + tuple((v[-3:]/self.crop).astype(int))
+            m = k + '_mask'
+            if m in spec:
+                spec[m] = tuple(spec[k])
         return spec
 
     def __call__(self, sample, **kwargs):
