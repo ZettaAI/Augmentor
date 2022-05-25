@@ -25,7 +25,7 @@ class CropLabels(Augment):
     Crop labels.
     """
     def __init__(self, crop):
-        self.crop = tuple(crop)
+        self.crop = np.array(crop)
         self.segs = []
 
     def prepare(self, spec, segs=[], **kwargs):
@@ -34,7 +34,7 @@ class CropLabels(Augment):
         spec = dict(spec)
         for k in self.segs:
             v = spec[k]
-            spec[k] = v[:-3] + tuple((v[-3:]/np.array(self.crop)).astype(int))
+            spec[k] = v[:-3] + tuple((v[-3:]/self.crop).astype(int))
         return spec
 
     def __call__(self, sample, **kwargs):
