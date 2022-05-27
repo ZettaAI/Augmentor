@@ -93,7 +93,7 @@ class Blur3D(Perturb):
 class Noise(Perturb):
     """Uniform noise + Gaussian blurring."""
     def __init__(self, sigma=(2,5)):
-        assert len(sigma)==2
+        assert len(sigma) == 2
         self.sigma = tuple(max(s, 0) for s in sigma)
 
     def __call__(self, img):
