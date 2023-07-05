@@ -6,6 +6,7 @@ requirements = [
     'numpy',
     'scipy',
     'Cython',
+    'DataTools',
 ]
 
 

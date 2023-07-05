@@ -1,6 +1,8 @@
 Cython
+h5py
 imgaug
 matplotlib
 numpy
 scipy
 scikit-image
+git+https://github.com/seung-lab/DataTools.git
