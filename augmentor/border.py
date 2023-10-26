@@ -10,8 +10,9 @@ class Border(Augment):
     """
     Create borders
     """
-    def __init__(self):
+    def __init__(self, targets=[]):
         self.segs = []
+        self.targets = targets if targets else []
 
     def prepare(self, spec, segs=[], **kwargs):
         self.segs = segs
@@ -19,10 +20,12 @@ class Border(Augment):
 
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
-        for k in self.segs:
+        targets = self.targets if self.targets else self.segs
+        for k in targets:
             if k in sample:
                 seg = sample[k][0,:,:,:].astype(np.uint32)
                 sample[k] = create_border(seg).astype(np.uint32)
+        self.segs = []
         return Augment.sort(Augment.to_tensor(sample))
 
     def __repr__(self):
