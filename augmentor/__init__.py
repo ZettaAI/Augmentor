@@ -8,6 +8,7 @@ from .label import Label
 from .lost import *
 from .misalign import *
 from .missing import *
+from .myelin import Myelin
 from .noise import *
 from .track import *
 from .warp import Warp
