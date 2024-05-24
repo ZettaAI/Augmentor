@@ -9,5 +9,6 @@ from .lost import *
 from .misalign import *
 from .missing import *
 from .noise import *
+from .section_gap import SectionGap
 from .track import *
 from .warp import Warp
