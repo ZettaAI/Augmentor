@@ -5,4 +5,5 @@ matplotlib
 numpy
 scipy
 scikit-image
+einops
 git+https://github.com/seung-lab/DataTools.git
