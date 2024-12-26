@@ -11,4 +11,5 @@ from .missing import *
 from .noise import *
 from .section_gap import SectionGap
 from .track import *
+from .superresolution import *
 from .warp import Warp
