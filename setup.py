@@ -7,6 +7,7 @@ requirements = [
     'scipy',
     'Cython',
     'DataTools',
+    'pyfastnoiselite',
 ]
 
 
