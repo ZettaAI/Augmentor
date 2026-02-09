@@ -13,4 +13,5 @@ from .missing import *
 from .noise import *
 from .section_gap import SectionGap
 from .track import *
+from .simplex_warp import SimplexNoiseWarpField
 from .warp import Warp

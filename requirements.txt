@@ -5,4 +5,5 @@ matplotlib
 numpy
 scipy
 scikit-image
+pyfastnoiselite
 git+https://github.com/seung-lab/DataTools.git
