@@ -12,5 +12,6 @@ from .misalign import *
 from .missing import *
 from .noise import *
 from .section_gap import SectionGap
+from .subsample import *
 from .track import *
 from .warp import Warp
