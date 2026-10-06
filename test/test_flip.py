@@ -5,7 +5,10 @@ FlipRotateIsotropic used to draw three flips and three independent
 transpositions -- 64 outcomes, 48 distinct transforms, 16 of them twice as
 likely -- which these tests would have caught.
 
+    python setup.py build_ext --inplace     # the package has a Cython extension
     pytest test/test_flip.py
+
+The root conftest.py makes these import the checkout, not an installed copy.
 """
 import collections
 import itertools
@@ -93,12 +96,27 @@ def test_non_cubic_specs_come_out_in_the_requested_shape(seed):
         assert sorted(in_spec[k][-3:]) == sorted(v[-3:])
 
 
-def test_all_keys_get_the_same_transform():
-    np.random.seed(3)
+def _centre_crop(v, shape):
+    lo = [(a - b) // 2 for a, b in zip(v.shape[-3:], shape[-3:])]
+    return v[..., lo[0]:lo[0] + shape[-3], lo[1]:lo[1] + shape[-2], lo[2]:lo[2] + shape[-1]]
+
+
+@pytest.mark.parametrize("seed", range(24))
+def test_keys_of_different_sizes_stay_registered(seed):
+    """A sample holds an image and a smaller label window read about one
+    centre. After the transform the label still has to be the centre of the
+    image, or the two no longer show the same place."""
+    np.random.seed(seed)
+    spec = dict(big=(1, 8, 10, 12), small=(1, 4, 6, 8))
     aug = FlipRotateIsotropic()
-    spec = dict(a=(1, 3, 3, 3), b=(1, 3, 3, 3))
-    _, out = _draw(aug, spec)
-    assert np.array_equal(out['a'], out['b'])
+    in_spec = aug.prepare(dict(spec))
+    big = np.random.rand(*in_spec['big']).astype(np.float32)
+    sample = dict(big=big, small=_centre_crop(big, in_spec['small']).copy())
+    out = aug(sample)
+    assert out['big'].shape == spec['big'] and out['small'].shape == spec['small']
+    assert np.array_equal(out['small'], _centre_crop(out['big'], spec['small']))
+    # ... and the 24 seeds do move the data: this is not the identity passing.
+    assert seed != 0 or not np.array_equal(out['big'], big)
 
 
 def test_flip_alone_is_unchanged():

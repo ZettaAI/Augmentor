@@ -99,7 +99,7 @@ class Permute(Augment):
     included. Unlike Transpose, which applies one fixed permutation or
     nothing, this covers every ordering with equal probability.
     """
-    PERMS = [(1,2,3), (1,3,2), (2,1,3), (2,3,1), (3,1,2), (3,2,1)]
+    PERMS = ((1,2,3), (1,3,2), (2,1,3), (2,3,1), (3,1,2), (3,2,1))
 
     def __init__(self):
         self.axes = (0,1,2,3)
@@ -139,10 +139,8 @@ class FlipRotateIsotropic(Compose):
     axis orderings; every symmetry is exactly one flip pattern followed by
     one ordering, so the product is uniform over all 48.
 
-    This used to be three flips and three independent transpositions (xy, yz,
-    zx): 64 equally likely outcomes, but only 48 distinct transforms, with 16
-    of them twice as likely as the rest. The original z axis ended up on y
-    half of the time and on z and x a quarter each.
+    Three independent transpositions (xy, yz, zx) in place of Permute would
+    not be: they reach the six orderings with multiplicity 1, 1, 1, 1, 2, 2.
     """
     def __init__(self):
         augs = [
