@@ -123,23 +123,30 @@ class PoissonNoise(Perturb):
         peak_electrons (tuple): Range (min, max) to sample effective electron
             count at max intensity. Lower = more noise. Typical EM: 50-500.
             Default is (50, 200).
+        invert (bool): Count electrons on the inverted signal (1 - I), so the
+            darkest pixels are the noisiest. FIB-SEM is shown with inverted
+            contrast: heavy-metal stain gives more electrons but a darker grey.
     """
-    def __init__(self, peak_electrons=(50, 200)):
+    def __init__(self, peak_electrons=(50, 200), invert=False):
         self.peak_electrons_range = peak_electrons
         self.peak_electrons = np.random.uniform(*peak_electrons)
+        self.invert = invert
 
     def __call__(self, img):
+        signal = (1 - img) if self.invert else img
         # Scale to electron counts
-        electrons = img * self.peak_electrons
+        electrons = np.clip(signal, 0, None) * self.peak_electrons
         # Apply Poisson sampling
         noisy = np.random.poisson(electrons).astype(np.float64)
         # Scale back and store in-place
-        img[...] = noisy / self.peak_electrons
+        noisy /= self.peak_electrons
+        img[...] = (1 - noisy) if self.invert else noisy
         np.clip(img, 0, 1, out=img)
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('
-        format_string += 'peak_electrons={:.1f}'.format(self.peak_electrons)
+        format_string += 'peak_electrons={:.1f}, '.format(self.peak_electrons)
+        format_string += 'invert={}'.format(self.invert)
         format_string += ')'
         return format_string
 

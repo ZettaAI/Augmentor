@@ -1,4 +1,6 @@
 from __future__ import print_function
+from collections import OrderedDict
+
 import numpy as np
 
 from .augment import Augment, Compose, Blend
@@ -8,10 +10,37 @@ from .contrast import ContrastCompression3D, ContrastCompression2D
 
 
 __all__ = [
+    'DEGRADATION_LEVELS',
     'PoissonNoise3D', 'PoissonNoise2D', 'PoissonNoiseMixed',
     'GaussianNoise3D', 'GaussianNoise2D', 'GaussianNoiseMixed',
     'ImageDegradation', 'ImageDegradation3D', 'ImageDegradation2D',
 ]
+
+
+# Named severities, from the harsh-degradation study in
+# hammerschmith_mouse_mec/notebooks/260116_augmentation_analysis_part6_harsh_degradation.
+# The study's advice: train on mild to harsh, brutal to ultra 10-20 % of the
+# time, nightmare never.
+DEGRADATION_LEVELS = OrderedDict([
+    ('mild',      dict(compression_factor=0.7,  peak_electrons=200, variance=0.005)),
+    ('moderate',  dict(compression_factor=0.5,  peak_electrons=100, variance=0.01)),
+    ('severe',    dict(compression_factor=0.4,  peak_electrons=50,  variance=0.02)),
+    ('harsh',     dict(compression_factor=0.35, peak_electrons=30,  variance=0.025)),
+    ('brutal',    dict(compression_factor=0.25, peak_electrons=20,  variance=0.04)),
+    ('ultra',     dict(compression_factor=0.2,  peak_electrons=15,  variance=0.04)),
+    ('nightmare', dict(compression_factor=0.15, peak_electrons=10,  variance=0.05)),
+])
+
+
+def _level_params(level, **kwargs):
+    """Fixed ranges for one named severity; kwargs override."""
+    p = DEGRADATION_LEVELS[level]
+    params = dict(peak_electrons=(p['peak_electrons'],) * 2,
+                  variance=(p['variance'],) * 2,
+                  compression_factor=(p['compression_factor'],) * 2,
+                  mean_shift=(0.0, 0.0))
+    params.update(kwargs)
+    return params
 
 
 class PoissonNoise3D(Augment):
@@ -24,9 +53,11 @@ class PoissonNoise3D(Augment):
         peak_electrons (tuple): Range (min, max) to sample effective electron
             count at max intensity. Lower = more noise. Typical EM: 50-500.
         skip (float): Probability of skipping the augmentation.
+        invert (bool): Count electrons on 1 - I (FIB-SEM's inverted contrast).
     """
-    def __init__(self, peak_electrons=(50, 200), skip=0.3):
+    def __init__(self, peak_electrons=(50, 200), skip=0.3, invert=False):
         self.peak_electrons = peak_electrons
+        self.invert = invert
         self.skip = np.clip(skip, 0, 1)
         self.do_aug = False
         self.imgs = []
@@ -39,7 +70,7 @@ class PoissonNoise3D(Augment):
     def __call__(self, sample, **kwargs):
         sample = Augment.to_tensor(sample)
         if self.do_aug:
-            perturb = PoissonNoise(self.peak_electrons)
+            perturb = PoissonNoise(self.peak_electrons, invert=self.invert)
             for k in self.imgs:
                 perturb(sample[k])
         return Augment.sort(sample)
@@ -63,11 +94,11 @@ class PoissonNoise2D(Section):
     Each z-slice can receive a different noise realization,
     simulating spatially varying shot noise.
     """
-    def __init__(self, peak_electrons=(50, 200), prob=1, **kwargs):
+    def __init__(self, peak_electrons=(50, 200), prob=1, invert=False, **kwargs):
         super(PoissonNoise2D, self).__init__(
             PoissonNoise, prob=prob, **kwargs
         )
-        self.params = dict(peak_electrons=peak_electrons)
+        self.params = dict(peak_electrons=peak_electrons, invert=invert)
 
 
 class PoissonNoiseMixed(Blend):
@@ -165,6 +196,7 @@ class ImageDegradation(Compose):
         skip_poisson (float): Skip probability for Poisson noise.
         skip_gaussian (float): Skip probability for Gaussian noise.
         skip_contrast (float): Skip probability for contrast compression.
+        invert (bool): Poisson noise on 1 - I (FIB-SEM's inverted contrast).
     """
     def __init__(self,
                  peak_electrons=(50, 200),
@@ -174,9 +206,11 @@ class ImageDegradation(Compose):
                  use_local_mean=True,
                  skip_poisson=0.0,
                  skip_gaussian=0.0,
-                 skip_contrast=0.0):
+                 skip_contrast=0.0,
+                 invert=False):
         augments = [
-            PoissonNoise3D(peak_electrons=peak_electrons, skip=skip_poisson),
+            PoissonNoise3D(peak_electrons=peak_electrons, skip=skip_poisson,
+                           invert=invert),
             GaussianNoise3D(variance=variance, skip=skip_gaussian),
             ContrastCompression3D(
                 compression_factor=compression_factor,
@@ -186,6 +220,11 @@ class ImageDegradation(Compose):
             )
         ]
         super(ImageDegradation, self).__init__(augments)
+
+    @classmethod
+    def at_level(cls, level, **kwargs):
+        """One named severity of ``DEGRADATION_LEVELS``, every draw the same."""
+        return cls(**_level_params(level, **kwargs))
 
 
 class ImageDegradation3D(ImageDegradation):
@@ -207,10 +246,11 @@ class ImageDegradation2D(Compose):
                  prob=1.0,
                  skip_poisson=0.0,
                  skip_gaussian=0.0,
-                 skip_contrast=0.0):
+                 skip_contrast=0.0,
+                 invert=False):
         augments = [
             PoissonNoise2D(peak_electrons=peak_electrons, prob=prob,
-                          skip=skip_poisson),
+                          skip=skip_poisson, invert=invert),
             GaussianNoise2D(variance=variance, prob=prob, skip=skip_gaussian),
             ContrastCompression2D(
                 compression_factor=compression_factor,
@@ -221,3 +261,8 @@ class ImageDegradation2D(Compose):
             )
         ]
         super(ImageDegradation2D, self).__init__(augments)
+
+    @classmethod
+    def at_level(cls, level, **kwargs):
+        """One named severity of ``DEGRADATION_LEVELS``, every draw the same."""
+        return cls(**_level_params(level, **kwargs))
